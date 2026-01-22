@@ -9,8 +9,11 @@ interface ResultDisplayProps {
   error: string | null;
   onGeneratePrompt: (index: number) => void;
   promptLoadingIndex: number | null;
+  onGenerateVideo: (index: number) => void;
+  videoLoadingIndex: number | null;
   generationMode: 'lookbook' | 'b-roll' | 'pose' | 'scene' | 'campaign' | 'theme';
   onStartOver: () => void;
+  onOpenSelectKey: () => void;
 }
 
 const LoadingMessage: React.FC = () => {
@@ -34,8 +37,18 @@ const LoadingMessage: React.FC = () => {
     return <p className="text-[#3A3A3A]/80 mt-4 text-lg">{message}</p>;
 }
 
-const LookCard: React.FC<{ look: Look; index: number; onGeneratePrompt: (index: number) => void; isLoading: boolean; onZoom: (imageUrl: string) => void; generationMode: ResultDisplayProps['generationMode']; }> = ({ look, index, onGeneratePrompt, isLoading, onZoom, generationMode }) => {
+const LookCard: React.FC<{ 
+    look: Look; 
+    index: number; 
+    onGeneratePrompt: (index: number) => void; 
+    onGenerateVideo: (index: number) => void; 
+    promptIsLoading: boolean; 
+    videoIsLoading: boolean;
+    onZoom: (imageUrl: string) => void; 
+    generationMode: ResultDisplayProps['generationMode']; 
+}> = ({ look, index, onGeneratePrompt, onGenerateVideo, promptIsLoading, videoIsLoading, onZoom, generationMode }) => {
     const [copied, setCopied] = useState(false);
+    const [shareCopied, setShareCopied] = useState(false);
     const showPromptButton = generationMode === 'lookbook' || generationMode === 'pose';
 
     const handleCopy = () => {
@@ -43,6 +56,27 @@ const LookCard: React.FC<{ look: Look; index: number; onGeneratePrompt: (index: 
             navigator.clipboard.writeText(look.videoPrompt);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    const handleShare = async () => {
+        const shareData = {
+            title: 'Gambar Dibuat dengan VisioAI',
+            text: 'Lihat gambar keren yang saya buat dengan VisioAI!',
+            url: look.imageUrl,
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+            } catch (err) {
+                console.error("Gagal membagikan:", err);
+            }
+        } else {
+            // Fallback for browsers that don't support Web Share API
+            navigator.clipboard.writeText(look.imageUrl);
+            setShareCopied(true);
+            setTimeout(() => setShareCopied(false), 2000);
         }
     };
 
@@ -73,16 +107,54 @@ const LookCard: React.FC<{ look: Look; index: number; onGeneratePrompt: (index: 
         </a>
     );
 
+     const ShareButton: React.FC<{ isSecondary?: boolean }> = ({ isSecondary = false }) => (
+        <button
+            onClick={handleShare}
+            className={`font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 text-sm border-2 border-[#6D597A] w-full ${isSecondary ? 'bg-[#B56576] hover:bg-[#b56576e0] text-[#FDF6F0]' : 'bg-[#FDF6F0] hover:bg-[#FDF6F0]/80 text-[#3A3A3A]'}`}
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+            </svg>
+            <span>{shareCopied ? 'Copied!' : 'Bagikan'}</span>
+        </button>
+    );
+
     return (
         <div className="relative group overflow-hidden rounded-lg border-2 border-[#6D597A] bg-gray-100 shadow-[4px_4px_0px_#6D597A]">
+            {videoIsLoading && (
+                <div className="absolute inset-0 bg-[#3A3A3A]/90 z-20 flex flex-col items-center justify-center p-4 text-center text-white">
+                    <Spinner />
+                    <p className="mt-4 font-semibold text-lg">Lagi bikin video...</p>
+                    <p className="text-sm text-white/80 mt-1">Proses ini bisa makan waktu beberapa menit. Jangan tutup tab ini ya.</p>
+                </div>
+            )}
             {look.name && (
                 <div className="absolute top-2 left-2 bg-[#E56B6F] text-white text-xs font-bold px-2 py-1 rounded-full z-10">
                     {look.name}
                 </div>
             )}
-            <img src={look.imageUrl} alt={`Look ${index + 1}`} className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-110" />
+            
+            {look.videoUrl ? (
+                <video src={look.videoUrl} className="w-full h-auto object-cover" controls autoPlay loop muted playsInline />
+            ) : (
+                <img src={look.imageUrl} alt={`Look ${index + 1}`} className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-110" />
+            )}
+
             <div className="absolute inset-0 bg-[#3A3A3A]/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-2">
-                {look.videoPrompt ? (
+                {look.videoUrl ? (
+                     <div className="flex flex-col space-y-3 w-4/5">
+                        <a
+                            href={look.videoUrl}
+                            download={`video-${index + 1}.mp4`}
+                            className="bg-[#B56576] hover:bg-[#b56576e0] text-[#FDF6F0] font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 text-sm border-2 border-[#6D597A] w-full"
+                        >
+                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                           <span>Download Video</span>
+                        </a>
+                    </div>
+                ) : look.videoPrompt ? (
                     <div className="text-center text-[#FDF6F0] p-2 flex flex-col justify-center items-center h-full w-full">
                         <p className="text-sm mb-3 font-mono flex-grow overflow-y-auto custom-scrollbar">{look.videoPrompt}</p>
                         <div className="w-full space-y-2 mt-auto">
@@ -92,37 +164,35 @@ const LookCard: React.FC<{ look: Look; index: number; onGeneratePrompt: (index: 
                             >
                                 {copied ? 'Copied!' : 'Copy Prompt'}
                             </button>
-                             <ZoomButton isSecondary={true} />
-                            <DownloadButton isSecondary={true} />
+                            <button
+                                onClick={() => onGenerateVideo(index)}
+                                className="bg-[#B56576] hover:bg-[#b56576e0] text-[#FDF6F0] font-bold py-2 px-4 rounded-lg transition-all text-sm border-2 border-[#6D597A] w-full"
+                            >
+                                Generate Video
+                            </button>
+                            <div className="flex space-x-2 pt-1">
+                                <ZoomButton isSecondary={true} />
+                                <DownloadButton isSecondary={true} />
+                                <ShareButton isSecondary={true} />
+                            </div>
                         </div>
                     </div>
                 ) : (
                     <div className="flex flex-col space-y-3 w-4/5">
                         <ZoomButton />
                         <DownloadButton />
+                        <ShareButton />
                         {showPromptButton && (
                             <button
                                 onClick={() => onGeneratePrompt(index)}
-                                disabled={isLoading}
+                                disabled={promptIsLoading}
                                 className="bg-[#B56576] hover:bg-[#b56576e0] text-[#FDF6F0] font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 text-sm border-2 border-[#6D597A] disabled:bg-[#3A3A3A]/40"
                                 aria-label={`Buat prompt video untuk look ${index + 1}`}
                             >
-                                {isLoading ? (
-                                    <>
-                                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        <span>Membuat...</span>
-                                    </>
+                                {promptIsLoading ? (
+                                    <> <Spinner/> <span>Membuat...</span> </>
                                 ) : (
-                                    <>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M10 3.5a1.5 1.5 0 011.5 1.5v1.41a3.501 3.501 0 00-2.532 1.222l-.678.79a.5.5 0 01-.88.002l-.68-.79A3.5 3.5 0 004 6.41V5A1.5 1.5 0 015.5 3.5h3zm-2.5 7.5a.5.5 0 000 1h5a.5.5 0 000-1h-5z" />
-                                            <path fillRule="evenodd" d="M2 5a3 3 0 013-3h6a3 3 0 013 3v10a3 3 0 01-3 3H5a3 3 0 01-3-3V5zm3-1a1 1 0 00-1 1v10a1 1 0 001 1h6a1 1 0 001-1V5a1 1 0 00-1-1H5z" clipRule="evenodd" />
-                                        </svg>
-                                        <span>Buat Prompt</span>
-                                    </>
+                                    <span>Buat Prompt</span>
                                 )}
                             </button>
                         )}
@@ -133,7 +203,7 @@ const LookCard: React.FC<{ look: Look; index: number; onGeneratePrompt: (index: 
     );
 };
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ lookbook, isLoading, error, onGeneratePrompt, promptLoadingIndex, generationMode, onStartOver }) => {
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ lookbook, isLoading, error, onGeneratePrompt, promptLoadingIndex, onGenerateVideo, videoLoadingIndex, generationMode, onStartOver, onOpenSelectKey }) => {
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
   
   const handleZoomIn = (imageUrl: string) => {
@@ -176,6 +246,14 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ lookbook, isLoadin
             <div className="text-red-700 bg-red-100 p-6 rounded-lg border-2 border-red-700 w-full max-w-lg">
               <p className="font-semibold text-lg">Waduh, ada error</p>
               <p className="mt-2">{error}</p>
+               {error.includes("paid API key") && (
+                    <button
+                        onClick={onOpenSelectKey}
+                        className="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-all"
+                    >
+                        Pilih API Key
+                    </button>
+                )}
             </div>
             <button
                 onClick={onStartOver}
@@ -200,7 +278,9 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ lookbook, isLoadin
                     look={look}
                     index={index}
                     onGeneratePrompt={onGeneratePrompt}
-                    isLoading={promptLoadingIndex === index}
+                    onGenerateVideo={onGenerateVideo}
+                    promptIsLoading={promptLoadingIndex === index}
+                    videoIsLoading={videoLoadingIndex === index}
                     onZoom={handleZoomIn}
                     generationMode={generationMode}
                 />

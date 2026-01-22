@@ -8,4 +8,5 @@ export interface Look {
   videoPrompt: string | null;
   name?: string;
   ratio?: string;
+  videoUrl?: string | null;
 }

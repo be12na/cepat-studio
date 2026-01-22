@@ -50,8 +50,8 @@ const parseAndThrowEnhancedError = (error: unknown) => {
     console.error("Gemini Service Error:", error);
     if (error instanceof Error) {
         const message = error.message.toLowerCase();
-        if (message.includes('api key not valid')) {
-            throw new Error('API Key-mu nggak valid nih. Coba cek lagi ya.');
+        if (message.includes('api key not valid') || message.includes('requested entity was not found')) {
+            throw new Error('API Key-mu nggak valid atau nggak punya izin. Coba pilih API Key berbayar yang valid ya.');
         }
         if (message.includes('permission denied') || message.includes('origin')) {
             throw new Error('Request API-mu diblokir. Kayaknya API Key kamu ada batasan domain. Coba cek Google Cloud Console-mu buat mastiin domain kamu udah di-whitelist.');
@@ -313,7 +313,6 @@ export const generateScene = async (
   }
 };
 
-// FIX: Switched from generateImages to generateContent for image-to-image tasks. This resolves the error from passing an 'image' parameter to generateImages.
 export const generateCampaignKit = async (
   productImage: ImageData,
   theme: string,
@@ -349,7 +348,6 @@ export const generateCampaignKit = async (
   }
 };
 
-// FIX: Switched from generateImages to generateContent for image-to-image tasks. This resolves the error from passing an 'image' parameter and checking for 'promptFeedback'. Looping to generate multiple images.
 export const generateThemeExploration = async (
   productImage: ImageData,
   artisticStyle: string,
@@ -429,3 +427,59 @@ export const generateVideoPrompt = async (
         return "";
     }
 };
+
+export const generateVideoFromImage = async (
+    image: ImageData,
+    prompt: string,
+    apiKey: string,
+): Promise<string> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+
+        const imagePart = {
+            imageBytes: image.base64,
+            mimeType: image.mimeType,
+        };
+
+        // @ts-ignore
+        let operation = await ai.models.generateVideos({
+            model: 'veo-3.1-fast-generate-preview',
+            prompt: prompt,
+            image: imagePart,
+            config: {
+                numberOfVideos: 1,
+                resolution: '720p',
+                aspectRatio: '9:16'
+            }
+        });
+
+        while (!operation.done) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+             // @ts-ignore
+            operation = await ai.operations.getVideosOperation({ operation: operation });
+        }
+
+        if (operation.error) {
+            throw new Error(`Pembuatan video gagal: ${operation.error.message}`);
+        }
+
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+
+        if (!downloadLink) {
+            throw new Error("Video telah dibuat tetapi tautan unduhan tidak ada.");
+        }
+        
+        const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
+        if (!videoResponse.ok) {
+            throw new Error(`Gagal mengunduh file video: ${videoResponse.statusText}`);
+        }
+
+        const videoBlob = await videoResponse.blob();
+        
+        return URL.createObjectURL(videoBlob);
+
+    } catch (error) {
+        parseAndThrowEnhancedError(error);
+        return "";
+    }
+}

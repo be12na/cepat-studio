@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header.tsx';
 import { Footer } from './components/Footer.tsx';
-import { generateLookbook, generateBroll, generateVideoPrompt, generatePoses, generateScene, generateCampaignKit, generateThemeExploration } from './services/geminiService.ts';
+import { generateLookbook, generateBroll, generateVideoPrompt, generatePoses, generateScene, generateCampaignKit, generateThemeExploration, generateVideoFromImage } from './services/geminiService.ts';
 import type { ImageData, Look } from './types.ts';
 import { Stepper } from './components/Stepper.tsx';
 import { Step1_ModeSelection } from './components/Step1_ModeSelection.tsx';
@@ -17,6 +17,7 @@ const VALID_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const STEPS = ['Pilih Mode', 'Upload Asset', 'Kustomisasi', 'Hasil'];
 
 const App: React.FC = () => {
+  const [isAppVisible, setIsAppVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [modelImage, setModelImage] = useState<ImageData | null>(null);
   const [modelImagePreview, setModelImagePreview] = useState<string | null>(null);
@@ -26,6 +27,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [promptLoadingIndex, setPromptLoadingIndex] = useState<number | null>(null);
+  const [videoLoadingIndex, setVideoLoadingIndex] = useState<number | null>(null);
   const [theme, setTheme] = useState<string>('Studio Profesional');
   const [lighting, setLighting] = useState<string>('Cahaya Alami');
   const [generationMode, setGenerationMode] = useState<GenerationMode>('lookbook');
@@ -36,6 +38,17 @@ const App: React.FC = () => {
   // New states for new modes
   const [scenePrompt, setScenePrompt] = useState<string>('');
   const [artisticStyle, setArtisticStyle] = useState<string>('Cat Air');
+
+  const enterApp = async () => {
+    setIsAppVisible(true);
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (err) {
+      console.error("Gagal masuk mode layar penuh:", err);
+    }
+  };
 
 
   const resetState = () => {
@@ -48,6 +61,7 @@ const App: React.FC = () => {
     setIsLoading(false);
     setError(null);
     setPromptLoadingIndex(null);
+    setVideoLoadingIndex(null);
     setTheme('Studio Profesional');
     setLighting('Cahaya Alami');
     setScenePrompt('');
@@ -205,6 +219,63 @@ const App: React.FC = () => {
       setPromptLoadingIndex(null);
     }
   };
+  
+  const handleOpenSelectKey = async () => {
+    // @ts-ignore
+    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+        // @ts-ignore
+        await window.aistudio.openSelectKey();
+    } else {
+        setError("Lingkungan Anda tidak mendukung pemilihan kunci. Silakan kunjungi ai.google.dev/gemini-api/docs/billing untuk mempelajari lebih lanjut.");
+    }
+  };
+
+  const handleGenerateVideo = async (index: number) => {
+    // @ts-ignore
+    if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+      // @ts-ignore
+      const hasPaidKey = await window.aistudio.hasSelectedApiKey();
+      if (!hasPaidKey) {
+        setError("Pembuatan video memerlukan kunci API berbayar dari proyek dengan penagihan diaktifkan. Silakan pilih satu untuk melanjutkan.");
+        return;
+      }
+    } else {
+        console.warn("aistudio SDK tidak ditemukan. Melanjutkan dengan pembuatan video, tetapi mungkin gagal tanpa kunci API berbayar.");
+    }
+    
+    if (!lookbook) return;
+    const look = lookbook[index];
+    if (!look.videoPrompt) return;
+
+    setVideoLoadingIndex(index);
+    setError(null);
+
+    try {
+        const response = await fetch(look.imageUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `video-source-${index}.png`, { type: blob.type });
+        const imageData = await fileToImageData(file);
+
+        const videoUrl = await generateVideoFromImage(imageData, look.videoPrompt, apiKey);
+
+        setLookbook(currentLookbook => {
+            if (!currentLookbook) return null;
+            const newLookbook = [...currentLookbook];
+            newLookbook[index] = { ...newLookbook[index], videoUrl };
+            return newLookbook;
+        });
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Terjadi kesalahan yang tidak diketahui selama pembuatan video.";
+        if (errorMessage.includes('Requested entity was not found')) {
+            setError("Kunci API yang Anda pilih tampaknya tidak valid atau tidak memiliki izin. Silakan pilih kunci API berbayar yang valid.");
+        } else {
+            setError(errorMessage);
+        }
+    } finally {
+        setVideoLoadingIndex(null);
+    }
+  };
+
 
   const handleSaveApiKey = (key: string) => {
     localStorage.setItem('gemini_api_key', key);
@@ -216,10 +287,11 @@ const App: React.FC = () => {
     setIsApiKeyModalOpen(true);
   };
 
-  const canProceedFromUpload = (generationMode === 'lookbook' 
-      ? (!!modelImage && !!productImages[0])
-      : (generationMode === 'pose' ? !!modelImage : !!productImages[0])
-  );
+  const canProceedFromUpload = 
+    (generationMode === 'lookbook' && !!modelImage && !!productImages[0]) ||
+    (generationMode === 'pose' && !!modelImage) ||
+    (['b-roll', 'scene', 'campaign', 'theme'].includes(generationMode) && !!productImages[0]);
+
 
   const renderStepContent = () => {
     switch(currentStep) {
@@ -261,12 +333,34 @@ const App: React.FC = () => {
             error={error}
             onGeneratePrompt={handleGeneratePrompt}
             promptLoadingIndex={promptLoadingIndex}
+            onGenerateVideo={handleGenerateVideo}
+            videoLoadingIndex={videoLoadingIndex}
             generationMode={generationMode}
             onStartOver={resetState}
+            onOpenSelectKey={handleOpenSelectKey}
           />;
       default:
         return <div>Langkah tidak valid</div>
     }
+  }
+
+  if (!isAppVisible) {
+    return (
+      <div className="min-h-screen bg-[#f0fcf3] text-[#3A3A3A] flex flex-col items-center justify-center font-sans p-4">
+        <div className="text-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-[#3A3A3A]">Selamat Datang di VisioAI</h1>
+            <p className="mt-4 text-lg text-[#3A3A3A]/80 max-w-2xl mx-auto">
+                Ubah ide menjadi konten visual premium dengan kekuatan AI. Klik untuk memulai.
+            </p>
+            <button
+                onClick={enterApp}
+                className="mt-8 bg-[#6D597A] hover:bg-[#6d597ae0] text-[#FDF6F0] font-bold py-4 px-10 rounded-lg text-xl transition-all duration-200 ease-in-out border-2 border-[#6D597A] shadow-[4px_4px_0px_#B56576] hover:shadow-[2px_2px_0px_#B56576] hover:translate-x-0.5 hover:translate-y-0.5"
+            >
+                Mulai Berkreasi
+            </button>
+        </div>
+      </div>
+    );
   }
 
 
