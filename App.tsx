@@ -1,14 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { Header } from './components/Header';
-import { Footer } from './components/Footer';
-import { generateLookbook, generateBroll, generateVideoPrompt, generatePoses, generateScene, generateCampaignKit, generateThemeExploration } from './services/geminiService';
-import type { ImageData, Look } from './types';
-import { Stepper } from './components/Stepper';
-import { Step1_ModeSelection } from './components/Step1_ModeSelection';
-import { Step2_Upload } from './components/Step2_Upload';
-import { Step3_Customize } from './components/Step3_Customize';
-import { ResultDisplay } from './components/ResultDisplay';
-import { ApiKeyModal } from './components/ApiKeyModal';
+import { Header } from './components/Header.tsx';
+import { Footer } from './components/Footer.tsx';
+import { generateLookbook, generateBroll, generateVideoPrompt, generatePoses, generateScene, generateCampaignKit, generateThemeExploration } from './services/geminiService.ts';
+import type { ImageData, Look } from './types.ts';
+import { Stepper } from './components/Stepper.tsx';
+import { Step1_ModeSelection } from './components/Step1_ModeSelection.tsx';
+import { Step2_Upload } from './components/Step2_Upload.tsx';
+import { Step3_Customize } from './components/Step3_Customize.tsx';
+import { ResultDisplay } from './components/ResultDisplay.tsx';
+import { ApiKeyModal } from './components/ApiKeyModal.tsx';
 
 
 export type GenerationMode = 'lookbook' | 'b-roll' | 'pose' | 'scene' | 'campaign' | 'theme';

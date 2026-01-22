@@ -1,7 +1,7 @@
 import React from 'react';
-import { ImageUploader } from './ImageUploader';
-import { ImageSlot } from './ImageSlot';
-import type { GenerationMode } from '../App';
+import { ImageUploader } from './ImageUploader.tsx';
+import { ImageSlot } from './ImageSlot.tsx';
+import type { GenerationMode } from '../App.tsx';
 
 interface Step2_UploadProps {
   generationMode: GenerationMode;

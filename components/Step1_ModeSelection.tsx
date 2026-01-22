@@ -1,5 +1,5 @@
 import React from 'react';
-import type { GenerationMode } from '../App';
+import type { GenerationMode } from '../App.tsx';
 
 interface Step1_ModeSelectionProps {
     onModeSelect: (mode: GenerationMode) => void;

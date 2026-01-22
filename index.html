@@ -21,7 +21,7 @@
     <div id="root"></div>
     <!-- Add Babel for in-browser JSX/TSX transformation -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Change the script type to text/babel to let Babel transpile it -->
-    <script type="text/babel" data-type="module" src="/index.tsx"></script>
+    <!-- Change the script type to text/babel and add presets to let Babel transpile it -->
+    <script type="text/babel" data-presets="react,typescript" data-type="module" src="/index.tsx"></script>
   </body>
 </html>

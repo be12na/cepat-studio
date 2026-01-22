@@ -1,8 +1,8 @@
 import React from 'react';
-import { ImageUploader } from './ImageUploader';
-import { ControlSettings } from './ControlSettings';
-import { ModeSelector } from './ModeSelector';
-import { ImageSlot } from './ImageSlot';
+import { ImageUploader } from './ImageUploader.tsx';
+import { ControlSettings } from './ControlSettings.tsx';
+import { ModeSelector } from './ModeSelector.tsx';
+import { ImageSlot } from './ImageSlot.tsx';
 
 type GenerationMode = 'lookbook' | 'b-roll' | 'pose';
 

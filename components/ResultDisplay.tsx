@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Spinner } from './Spinner';
-import type { Look } from '../types';
-import { ImageZoomModal } from './ImageZoomModal';
+import { Spinner } from './Spinner.tsx';
+import type { Look } from '../types.ts';
+import { ImageZoomModal } from './ImageZoomModal.tsx';
 
 interface ResultDisplayProps {
   lookbook: Look[] | null;

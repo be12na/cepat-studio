@@ -1,8 +1,8 @@
 import React from 'react';
-import { ControlSettings } from './ControlSettings';
-import type { GenerationMode } from '../App';
-import { SceneCreatorSettings } from './SceneCreatorSettings';
-import { ThemeExplorerSettings } from './ThemeExplorerSettings';
+import { ControlSettings } from './ControlSettings.tsx';
+import type { GenerationMode } from '../App.tsx';
+import { SceneCreatorSettings } from './SceneCreatorSettings.tsx';
+import { ThemeExplorerSettings } from './ThemeExplorerSettings.tsx';
 
 
 interface Step3_CustomizeProps {

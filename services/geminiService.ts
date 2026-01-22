@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { GenerateContentResponse, Part, GenerateImagesResponse } from "@google/genai";
-import type { ImageData, Look } from "../types";
+import type { ImageData, Look } from "../types.ts";
 
 const lookPrompts = [
   "in a confident walking pose on a city street, full-body shot.",
