@@ -91,7 +91,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
           <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-r-lg">
             <p className="font-bold">Catatan Penting</p>
             <p className="text-sm">
-              Model yang digunakan di aplikasi ini memerlukan proyek Google Cloud dengan <strong>penagihan (billing) yang aktif</strong> agar dapat berfungsi di luar Google AI Studio. Anda mungkin masih berada dalam batas penggunaan gratis, tetapi aktivasi penagihan adalah sebuah keharusan.
+             Kamu bisa langsung pakai <strong>API Key gratis</strong> dari Google AI Studio di sini. Untuk beberapa model yang lebih canggih, mungkin diperlukan proyek Google Cloud dengan penagihan aktif, tapi kamu tetap bisa mencoba dengan kunci gratisan dulu.
             </p>
           </div>
           
