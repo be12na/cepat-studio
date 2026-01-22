@@ -8,6 +8,7 @@ import { Step1_ModeSelection } from './components/Step1_ModeSelection';
 import { Step2_Upload } from './components/Step2_Upload';
 import { Step3_Customize } from './components/Step3_Customize';
 import { ResultDisplay } from './components/ResultDisplay';
+import { ApiKeyModal } from './components/ApiKeyModal';
 
 
 export type GenerationMode = 'lookbook' | 'b-roll' | 'pose' | 'scene' | 'campaign' | 'theme';
@@ -28,6 +29,9 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<string>('Studio Profesional');
   const [lighting, setLighting] = useState<string>('Cahaya Alami');
   const [generationMode, setGenerationMode] = useState<GenerationMode>('lookbook');
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('gemini_api_key') || '');
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState<boolean>(!localStorage.getItem('gemini_api_key'));
+
 
   // New states for new modes
   const [scenePrompt, setScenePrompt] = useState<string>('');
@@ -100,19 +104,14 @@ const App: React.FC = () => {
   }, [productImages, productImagePreviews]);
   
   const handleProductImageRemove = useCallback((index: number) => {
-    if (index === 0) {
-        const newPreviews = [...productImagePreviews];
-        newPreviews[0] = null;
-        setProductImagePreviews(newPreviews);
-        
-        const newImages = [...productImages];
-        newImages[0] = null;
-        setProductImages(newImages);
-    } else {
+    if (productImages.length === 1) { // If only one slot, just clear it
+        setProductImagePreviews([null]);
+        setProductImages([null]);
+    } else { // Otherwise, remove the slot completely
         setProductImagePreviews(prev => prev.filter((_, i) => i !== index));
         setProductImages(prev => prev.filter((_, i) => i !== index));
     }
-  }, [productImages, productImagePreviews]);
+  }, [productImages]);
   
   const handleAddProductSlot = useCallback(() => {
     if (productImages.length < 4) {
@@ -122,6 +121,12 @@ const App: React.FC = () => {
   }, [productImages.length]);
 
   const handleGenerate = async () => {
+    if (!apiKey) {
+      setError("Harap atur API Key kamu dulu di pengaturan (ikon gerigi di kanan atas).");
+      setIsApiKeyModalOpen(true);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setLookbook(null);
@@ -132,22 +137,22 @@ const App: React.FC = () => {
       switch (generationMode) {
         case 'lookbook':
           const validProductImages = productImages.filter(Boolean) as ImageData[];
-          results = (await generateLookbook(modelImage!, validProductImages, theme, lighting)).map(url => ({ imageUrl: url, videoPrompt: null }));
+          results = (await generateLookbook(modelImage!, validProductImages, theme, lighting, apiKey)).map(url => ({ imageUrl: url, videoPrompt: null }));
           break;
         case 'b-roll':
-           results = (await generateBroll(productImages[0]!, theme, lighting)).map(url => ({ imageUrl: url, videoPrompt: null }));
+           results = (await generateBroll(productImages[0]!, theme, lighting, apiKey)).map(url => ({ imageUrl: url, videoPrompt: null }));
           break;
         case 'pose':
-           results = (await generatePoses(modelImage!, theme, lighting)).map(url => ({ imageUrl: url, videoPrompt: null }));
+           results = (await generatePoses(modelImage!, theme, lighting, apiKey)).map(url => ({ imageUrl: url, videoPrompt: null }));
           break;
         case 'scene':
-           results = (await generateScene(productImages[0]!, scenePrompt)).map(url => ({ imageUrl: url, videoPrompt: null }));
+           results = (await generateScene(productImages[0]!, scenePrompt, apiKey)).map(url => ({ imageUrl: url, videoPrompt: null }));
           break;
         case 'campaign':
-           results = await generateCampaignKit(productImages[0]!, theme, lighting);
+           results = await generateCampaignKit(productImages[0]!, theme, lighting, apiKey);
           break;
         case 'theme':
-           results = (await generateThemeExploration(productImages[0]!, artisticStyle)).map(url => ({ imageUrl: url, videoPrompt: null }));
+           results = (await generateThemeExploration(productImages[0]!, artisticStyle, apiKey)).map(url => ({ imageUrl: url, videoPrompt: null }));
           break;
         default:
           throw new Error("Mode pembuatan tidak valid.");
@@ -166,6 +171,12 @@ const App: React.FC = () => {
   };
 
   const handleGeneratePrompt = async (index: number) => {
+    if (!apiKey) {
+      setError("Harap atur API Key kamu dulu di pengaturan (ikon gerigi di kanan atas).");
+      setIsApiKeyModalOpen(true);
+      return;
+    }
+
     if (!lookbook) {
        setError("Tidak dapat membuat prompt tanpa lookbook.");
        return;
@@ -179,7 +190,7 @@ const App: React.FC = () => {
       const file = new File([blob], `look-${index}.png`, { type: blob.type });
       const imageData = await fileToImageData(file);
       
-      const prompt = await generateVideoPrompt(imageData, theme, lighting);
+      const prompt = await generateVideoPrompt(imageData, theme, lighting, apiKey);
 
       setLookbook(currentLookbook => {
         if (!currentLookbook) return null;
@@ -193,6 +204,16 @@ const App: React.FC = () => {
     } finally {
       setPromptLoadingIndex(null);
     }
+  };
+
+  const handleSaveApiKey = (key: string) => {
+    localStorage.setItem('gemini_api_key', key);
+    setApiKey(key);
+    setIsApiKeyModalOpen(false);
+  };
+    
+  const handleOpenApiKeyModal = () => {
+    setIsApiKeyModalOpen(true);
   };
 
   const canProceedFromUpload = (generationMode === 'lookbook' 
@@ -251,7 +272,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f0fcf3] text-[#3A3A3A] flex flex-col font-sans">
-      <Header />
+      <Header onOpenApiKeyModal={handleOpenApiKeyModal} />
       <main className="flex-grow container max-w-screen-xl mx-auto px-4 py-8 flex flex-col items-center">
         {currentStep < 4 && (
           <div className="text-center mb-12 w-full max-w-4xl">
@@ -271,6 +292,12 @@ const App: React.FC = () => {
 
       </main>
       <Footer />
+       <ApiKeyModal 
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onSave={handleSaveApiKey}
+        currentApiKey={apiKey}
+      />
     </div>
   );
 };

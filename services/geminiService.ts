@@ -2,13 +2,6 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import type { GenerateContentResponse, Part, GenerateImagesResponse } from "@google/genai";
 import type { ImageData, Look } from "../types";
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable is not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-
 const lookPrompts = [
   "in a confident walking pose on a city street, full-body shot.",
   "sitting elegantly at an outdoor cafe, medium shot.",
@@ -126,7 +119,8 @@ const generateSingleLook = async (
   productImages: ImageData[],
   stylePrompt: string,
   theme: string,
-  lighting: string
+  lighting: string,
+  ai: GoogleGenAI
 ): Promise<string> => {
     
   let promptSegment = "wearing the main fashion item from the second image";
@@ -154,7 +148,7 @@ const generateSingleLook = async (
       parts: parts,
     },
     config: {
-      responseModalities: [Modality.IMAGE, Modality.TEXT],
+      imageConfig: { aspectRatio: "9:16" }
     },
   });
 
@@ -166,11 +160,13 @@ export const generateLookbook = async (
   modelImage: ImageData,
   productImages: ImageData[],
   theme: string,
-  lighting: string
+  lighting: string,
+  apiKey: string,
 ): Promise<string[]> => {
   try {
+    const ai = new GoogleGenAI({ apiKey });
     const imagePromises = lookPrompts.map(style => 
-      generateSingleLook(modelImage, productImages, style, theme, lighting)
+      generateSingleLook(modelImage, productImages, style, theme, lighting, ai)
     );
     
     const imageUrls = await Promise.all(imagePromises);
@@ -187,7 +183,8 @@ const generateSingleBrollShot = async (
   productImage: ImageData,
   stylePrompt: string,
   theme: string,
-  lighting: string
+  lighting: string,
+  ai: GoogleGenAI
 ): Promise<string> => {
   const prompt = `Important: The output image MUST have a 9:16 aspect ratio (portrait format). Generate a new, photorealistic B-roll image of ONLY the product from the provided image. The generated background and props MUST be logically appropriate for the product category (e.g., a handbag on a stylish table, not in a forest). Now, apply this specific style: ${stylePrompt}. The photoshoot theme is '${theme}' with '${lighting}'. The overall style should be suitable for a high-end product showcase. Do NOT include any people or models in the image.`;
   
@@ -203,7 +200,7 @@ const generateSingleBrollShot = async (
       parts: [productImagePart, textPart],
     },
     config: {
-      responseModalities: [Modality.IMAGE, Modality.TEXT],
+      imageConfig: { aspectRatio: "9:16" }
     },
   });
 
@@ -213,11 +210,13 @@ const generateSingleBrollShot = async (
 export const generateBroll = async (
   productImage: ImageData,
   theme: string,
-  lighting: string
+  lighting: string,
+  apiKey: string,
 ): Promise<string[]> => {
   try {
+    const ai = new GoogleGenAI({ apiKey });
     const imagePromises = brollPrompts.map(style => 
-      generateSingleBrollShot(productImage, style, theme, lighting)
+      generateSingleBrollShot(productImage, style, theme, lighting, ai)
     );
     
     const imageUrls = await Promise.all(imagePromises);
@@ -234,7 +233,8 @@ const generateSinglePose = async (
   modelImage: ImageData,
   stylePrompt: string,
   theme: string,
-  lighting: string
+  lighting: string,
+  ai: GoogleGenAI
 ): Promise<string> => {
   const prompt = `Important: The output image MUST have a 9:16 aspect ratio (portrait format). Recreate the exact same model from the image, wearing the same clothes in the same environment. The only thing that should change is their pose. The new pose should be: ${stylePrompt}. The photoshoot theme is '${theme}' with '${lighting}'. Maintain photorealism and consistency with the original image.`;
   
@@ -250,7 +250,7 @@ const generateSinglePose = async (
       parts: [modelImagePart, textPart],
     },
     config: {
-      responseModalities: [Modality.IMAGE, Modality.TEXT],
+      imageConfig: { aspectRatio: "9:16" }
     },
   });
 
@@ -260,11 +260,13 @@ const generateSinglePose = async (
 export const generatePoses = async (
   modelImage: ImageData,
   theme: string,
-  lighting: string
+  lighting: string,
+  apiKey: string,
 ): Promise<string[]> => {
   try {
+    const ai = new GoogleGenAI({ apiKey });
     const imagePromises = posePrompts.map(style => 
-      generateSinglePose(modelImage, style, theme, lighting)
+      generateSinglePose(modelImage, style, theme, lighting, ai)
     );
     
     const imageUrls = await Promise.all(imagePromises);
@@ -279,13 +281,14 @@ export const generatePoses = async (
 
 export const generateScene = async (
   subjectImage: ImageData,
-  scenePrompt: string
+  scenePrompt: string,
+  apiKey: string,
 ): Promise<string[]> => {
   try {
     if (!scenePrompt) {
       throw new Error("Scene prompt tidak boleh kosong.");
     }
-
+    const ai = new GoogleGenAI({ apiKey });
     const imagePromises = Array(4).fill(0).map(async (_, i) => {
       const prompt = `Create a photorealistic image placing the main subject from the provided image into the following scene: "${scenePrompt}". The final image MUST have a 9:16 aspect ratio. Ensure the lighting, shadows, and perspective on the subject are perfectly blended with the new background. Introduce a slight variation in composition or angle for version ${i + 1}.`;
       
@@ -297,7 +300,7 @@ export const generateScene = async (
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [imagePart, textPart] },
-        config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
+        config: { imageConfig: { aspectRatio: "9:16" } },
       });
       return processImageEditResponse(response);
     });
@@ -314,9 +317,11 @@ export const generateScene = async (
 export const generateCampaignKit = async (
   productImage: ImageData,
   theme: string,
-  lighting: string
+  lighting: string,
+  apiKey: string,
 ): Promise<Look[]> => {
   try {
+    const ai = new GoogleGenAI({ apiKey });
     const imagePromises = campaignKitFormats.map(async (format) => {
       const prompt = `Important: The output image MUST have a ${format.ratio} aspect ratio. Generate a new, photorealistic image of ONLY the product from the provided image. Photoshoot theme: '${theme}', lighting: '${lighting}'. The overall style should be suitable for a high-end product showcase. Now, format it ${format.promptSuffix}`;
       
@@ -329,7 +334,7 @@ export const generateCampaignKit = async (
         model: 'gemini-2.5-flash-image',
         contents: { parts: [imagePart, textPart] },
         config: {
-          responseModalities: [Modality.IMAGE, Modality.TEXT],
+          imageConfig: { aspectRatio: format.ratio as "1:1" | "9:16" | "16:9" | "4:3" }
         },
       });
       const imageUrl = processImageEditResponse(response);
@@ -347,14 +352,15 @@ export const generateCampaignKit = async (
 // FIX: Switched from generateImages to generateContent for image-to-image tasks. This resolves the error from passing an 'image' parameter and checking for 'promptFeedback'. Looping to generate multiple images.
 export const generateThemeExploration = async (
   productImage: ImageData,
-  artisticStyle: string
+  artisticStyle: string,
+  apiKey: string
 ): Promise<string[]> => {
   try {
     const stylePrompt = themeExplorerStyles[artisticStyle];
     if (!stylePrompt) {
       throw new Error("Gaya artistik tidak valid.");
     }
-    
+    const ai = new GoogleGenAI({ apiKey });
     const imagePromises = Array(4).fill(0).map(async (_, i) => {
       const prompt = `Recreate the provided image in this artistic style: "${stylePrompt}". The final image MUST have a 1:1 aspect ratio. Introduce a slight variation for version ${i + 1}.`;
       
@@ -366,7 +372,7 @@ export const generateThemeExploration = async (
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [imagePart, textPart] },
-        config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
+        config: { imageConfig: { aspectRatio: "1:1" } },
       });
       return processImageEditResponse(response);
     });
@@ -384,9 +390,11 @@ export const generateThemeExploration = async (
 export const generateVideoPrompt = async (
     image: ImageData,
     theme: string,
-    lighting: string
+    lighting: string,
+    apiKey: string
 ): Promise<string> => {
     try {
+        const ai = new GoogleGenAI({ apiKey });
         const prompt = `You are a creative director for a fashion video shoot. Look at this image, which has a theme of '${theme}' and '${lighting}' lighting. Write a short, concise, and dynamic prompt for an Image-to-Video AI model like VEO or Kling. The prompt should describe a subtle movement or action that feels natural to the scene and showcases the product. Output a single sentence only. Do not describe what is already in the image, only describe the action.`;
         
         const imagePart: Part = {
@@ -395,7 +403,7 @@ export const generateVideoPrompt = async (
         const textPart: Part = { text: prompt };
 
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: {
                 parts: [imagePart, textPart],
             },
